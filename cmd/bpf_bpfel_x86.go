@@ -13,6 +13,16 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type bpfFileOpenAuditEvent struct {
+	Cgroup     uint64
+	Pid        uint32
+	Ret        int32
+	Nodename   [65]uint8
+	Task       [16]uint8
+	ParentTask [16]uint8
+	Path       [255]uint8
+}
+
 // loadBpf returns the embedded CollectionSpec for bpf.
 func loadBpf() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_BpfBytes)
@@ -61,6 +71,7 @@ type bpfProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfMapSpecs struct {
+	FileOpenAuditEvents *ebpf.MapSpec `ebpf:"file_open_audit_events"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -82,10 +93,13 @@ func (o *bpfObjects) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfMaps struct {
+	FileOpenAuditEvents *ebpf.Map `ebpf:"file_open_audit_events"`
 }
 
 func (m *bpfMaps) Close() error {
-	return _BpfClose()
+	return _BpfClose(
+		m.FileOpenAuditEvents,
+	)
 }
 
 // bpfPrograms contains all programs after they have been loaded into the kernel.

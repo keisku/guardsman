@@ -1,10 +1,9 @@
 // +build ignore
 
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
-
 #include "common.h"
 #include "vmlinux.h"
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
 
 #define FILE_NAME_LEN 32
 #define NAME_MAX 255
@@ -15,22 +14,38 @@ struct file_open_audit_event {
   u64 cgroup;
   u32 pid;
   int ret;
-  char nodename[NEW_UTS_LEN + 1];
-  char task[TASK_COMM_LEN];
-  char parent_task[TASK_COMM_LEN];
+  unsigned char nodename[NEW_UTS_LEN + 1];
+  unsigned char task[TASK_COMM_LEN];
+  unsigned char parent_task[TASK_COMM_LEN];
   unsigned char path[NAME_MAX];
 };
 
+struct {
+  __uint(type, BPF_MAP_TYPE_RINGBUF);
+  __uint(max_entries, 1 << 24);
+} file_open_audit_events SEC(".maps");
+
+// Force emitting struct event into the ELF.
+const struct file_open_audit_event *unused __attribute__((unused));
+
 SEC("lsm/file_open")
 int BPF_PROG(restricted_file_open, struct file *file) {
-  struct file_open_audit_event event = {};
-  event.cgroup = bpf_get_current_cgroup_id();
-  event.pid = (u32)(bpf_get_current_pid_tgid() >> 32);
-  bpf_get_current_comm(&event.task, sizeof(event.task));
-  if (bpf_d_path(&file->f_path, (char *)event.path, NAME_MAX) < 0) {
+  struct file_open_audit_event *event;
+
+  event = bpf_ringbuf_reserve(&file_open_audit_events,
+                              sizeof(struct file_open_audit_event), 0);
+  if (!event) {
     return 0;
   }
-  bpf_printk("cgroup=%d, pid=%d ", event.cgroup, event.pid);
-  bpf_printk("file path=%s, comm=%s\n", event.path, event.task);
+
+  event->cgroup = bpf_get_current_cgroup_id();
+  event->pid = (u32)(bpf_get_current_pid_tgid() >> 32);
+  bpf_get_current_comm(&event->task, sizeof(event->task));
+  if (bpf_d_path(&file->f_path, (char *)event->path, NAME_MAX) < 0) {
+	bpf_ringbuf_discard(event, 0);
+    return 0;
+  }
+
+  bpf_ringbuf_submit(event, 0);
   return 0;
 }
