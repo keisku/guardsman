@@ -10,3 +10,8 @@ generate:
 build: export CGO_ENABLED := 0
 build:
 	go build -o ./bin/guardsman ./cmd
+
+format:
+	clang-format -i -style=Google ./c/*.[ch]
+	goimports -w ./..
+	gofmt -w ./..
