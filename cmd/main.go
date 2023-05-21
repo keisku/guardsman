@@ -35,7 +35,7 @@ func main() {
 
 	rfOpen, err := link.AttachLSM(link.LSMOptions{Program: objs.bpfPrograms.RestrictedFileOpen})
 	if err != nil {
-		log.Fatalf("attach the BPF program to sys_enter_execve tracepoint: %s", err)
+		log.Fatalf("attach the LSM program: %s", err)
 	}
 	defer rfOpen.Close()
 
