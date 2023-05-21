@@ -29,7 +29,9 @@ struct {
 const struct file_open_audit_event *unused __attribute__((unused));
 
 SEC("lsm/file_open")
-int BPF_PROG(restricted_file_open, struct file *file) {
+int
+BPF_PROG(restricted_file_open, struct file *file)
+{
   struct file_open_audit_event *event;
 
   event = bpf_ringbuf_reserve(&file_open_audit_events,
@@ -42,7 +44,7 @@ int BPF_PROG(restricted_file_open, struct file *file) {
   event->pid = (u32)(bpf_get_current_pid_tgid() >> 32);
   bpf_get_current_comm(&event->task, sizeof(event->task));
   if (bpf_d_path(&file->f_path, (char *)event->path, NAME_MAX) < 0) {
-	bpf_ringbuf_discard(event, 0);
+    bpf_ringbuf_discard(event, 0);
     return 0;
   }
 

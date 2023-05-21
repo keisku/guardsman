@@ -12,6 +12,6 @@ build:
 	go build -o ./bin/guardsman ./cmd
 
 format:
-	clang-format ./c/*.[ch]
+	find ./ -iname '*.h' -o -iname '*.c' | xargs clang-format -i
 	goimports -w ./..
 	gofmt -w ./..
