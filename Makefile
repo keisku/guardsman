@@ -12,6 +12,6 @@ build:
 	go build -o ./bin/guardsman ./cmd
 
 format:
-	clang-format -i -style=Google ./c/*.[ch]
+	clang-format ./c/*.[ch]
 	goimports -w ./..
 	gofmt -w ./..
