@@ -8,7 +8,7 @@ all: generate build
 generate: export BPF_CLANG := $(CLANG)
 generate: export BPF_CFLAGS := $(CFLAGS)
 generate:
-	bpftool btf dump file /sys/kernel/btf/vmlinux format c > ./c/vmlinux.h
+	bpftool btf dump file /sys/kernel/btf/vmlinux format c > ./pkg/c/vmlinux.h
 	go generate ./...
 
 build: export CGO_ENABLED := 0

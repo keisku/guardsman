@@ -10,7 +10,7 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-struct file_open_audit_event {
+struct file_open_event {
   u64 cgroup;
   u32 pid;
   int ret;
@@ -23,19 +23,19 @@ struct file_open_audit_event {
 struct {
   __uint(type, BPF_MAP_TYPE_RINGBUF);
   __uint(max_entries, 1 << 24);
-} file_open_audit_events SEC(".maps");
+} file_open_events SEC(".maps");
 
 // Force emitting struct event into the ELF.
-const struct file_open_audit_event *unused __attribute__((unused));
+const struct file_open_event *unused __attribute__((unused));
 
 SEC("lsm/file_open")
 int
-BPF_PROG(restricted_file_open, struct file *file)
+BPF_PROG(file_open, struct file *file)
 {
-  struct file_open_audit_event *event;
+  struct file_open_event *event;
 
-  event = bpf_ringbuf_reserve(&file_open_audit_events,
-                              sizeof(struct file_open_audit_event), 0);
+  event =
+      bpf_ringbuf_reserve(&file_open_events, sizeof(struct file_open_event), 0);
   if (!event) {
     return 0;
   }

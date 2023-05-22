@@ -2,7 +2,7 @@
 //go:build 386 || amd64
 // +build 386 amd64
 
-package main
+package inode
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type bpfFileOpenAuditEvent struct {
+type bpfFileOpenEvent struct {
 	Cgroup     uint64
 	Pid        uint32
 	Ret        int32
@@ -64,14 +64,14 @@ type bpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfProgramSpecs struct {
-	RestrictedFileOpen *ebpf.ProgramSpec `ebpf:"restricted_file_open"`
+	FileOpen *ebpf.ProgramSpec `ebpf:"file_open"`
 }
 
 // bpfMapSpecs contains maps before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfMapSpecs struct {
-	FileOpenAuditEvents *ebpf.MapSpec `ebpf:"file_open_audit_events"`
+	FileOpenEvents *ebpf.MapSpec `ebpf:"file_open_events"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -93,12 +93,12 @@ func (o *bpfObjects) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfMaps struct {
-	FileOpenAuditEvents *ebpf.Map `ebpf:"file_open_audit_events"`
+	FileOpenEvents *ebpf.Map `ebpf:"file_open_events"`
 }
 
 func (m *bpfMaps) Close() error {
 	return _BpfClose(
-		m.FileOpenAuditEvents,
+		m.FileOpenEvents,
 	)
 }
 
@@ -106,12 +106,12 @@ func (m *bpfMaps) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfPrograms struct {
-	RestrictedFileOpen *ebpf.Program `ebpf:"restricted_file_open"`
+	FileOpen *ebpf.Program `ebpf:"file_open"`
 }
 
 func (p *bpfPrograms) Close() error {
 	return _BpfClose(
-		p.RestrictedFileOpen,
+		p.FileOpen,
 	)
 }
 
