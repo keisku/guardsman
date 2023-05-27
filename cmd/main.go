@@ -6,9 +6,86 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/spf13/cobra"
+	"golang.org/x/exp/slog"
 )
+
+type Options struct {
+	PID          int
+	UID          int
+	Output       string
+	OutputFormat string
+}
+
+func (o *Options) Validate() error {
+	logWriter := os.Stdout
+	if o.Output != "" {
+		f, err := os.Create(o.Output)
+		if err != nil {
+			return err
+		}
+		logWriter = f
+	}
+	var logHandler slog.Handler
+	logHandler = slog.NewJSONHandler(logWriter, nil)
+	if strings.ToLower(o.OutputFormat) == "text" {
+		logHandler = slog.NewTextHandler(logWriter, nil)
+	}
+	slog.SetDefault(slog.New(logHandler))
+	return nil
+}
+
+func (o *Options) Run(ctx context.Context) error {
+	closeInodeBPF, err := inode.LoadBPFObjects()
+	if err != nil {
+		return err
+	}
+	defer closeInodeBPF()
+	fileOpenEvents, err := inode.SubscribeFileOpenEvents(ctx)
+	if err != nil {
+		return err
+	}
+	go func() {
+		for e := range fileOpenEvents {
+			slog.Info(
+				"a lsm/file_open event",
+				slog.Int("pid", int(e.Pid)),
+				slog.Int("cgroup", int(e.Cgroup)),
+				slog.String("task", e.Task),
+				slog.String("path", e.Path),
+			)
+		}
+	}()
+	<-ctx.Done()
+	slog.Info("Received signal, exiting program...")
+	return nil
+}
+
+func NewCmd() *cobra.Command {
+	o := &Options{
+		PID:          -1,
+		UID:          -1,
+		Output:       "",
+		OutputFormat: "json",
+	}
+	cmd := &cobra.Command{
+		Use: "guardsman",
+	}
+	cmd.Flags().IntVarP(&o.PID, "pid", "p", o.PID, "trace this PID only")
+	cmd.Flags().IntVarP(&o.UID, "uid", "u", o.PID, "trace this UID only")
+	cmd.Flags().StringVarP(&o.Output, "output", "o", o.Output, "write output to this file instead of stdout")
+	cmd.Flags().StringVar(&o.OutputFormat, "output-format", o.OutputFormat, "write output in this format")
+	cmd.RunE = func(c *cobra.Command, _ []string) error {
+		if err := o.Validate(); err != nil {
+			return err
+		}
+		return o.Run(c.Context())
+	}
+	return cmd
+}
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
@@ -20,23 +97,8 @@ func main() {
 		return
 	}
 
-	closeInodeBPF, err := inode.LoadBPFObjects()
-	if err != nil {
+	if err := NewCmd().ExecuteContext(ctx); err != nil {
 		log.Println(err)
-		return
+		os.Exit(1)
 	}
-	defer closeInodeBPF()
-	fileOpenEvents, err := inode.SubscribeFileOpenEvents(ctx)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	go func() {
-		for e := range fileOpenEvents {
-			log.Printf("pid: %d, cgroup: %d, task: %s, path: %s", e.Pid, e.Cgroup, e.Task, e.Path)
-		}
-	}()
-
-	<-ctx.Done()
-	log.Println("Received signal, exiting program...")
 }

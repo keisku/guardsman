@@ -6,10 +6,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
+	"golang.org/x/exp/slog"
 )
 
 // $BPF_CLANG and $BPF_CFLAGS are set by the Makefile.
@@ -25,15 +25,19 @@ type FileOpenEvent struct {
 	Path       string
 }
 
+func removeNullCharacter(b []byte) []byte {
+	return bytes.Split(b, []byte("\u0000"))[0]
+}
+
 func convertBpfFileOpenEvent(e bpfFileOpenEvent) FileOpenEvent {
 	return FileOpenEvent{
 		Cgroup:     e.Cgroup,
 		Pid:        e.Pid,
 		Ret:        e.Ret,
-		Nodename:   fmt.Sprintf("%s", e.Nodename),
-		Task:       fmt.Sprintf("%s", e.Task),
-		ParentTask: fmt.Sprintf("%s", e.ParentTask),
-		Path:       fmt.Sprintf("%s", e.Path),
+		Nodename:   string(removeNullCharacter(e.Nodename[:])),
+		Task:       string(removeNullCharacter(e.Task[:])),
+		ParentTask: string(removeNullCharacter(e.ParentTask[:])),
+		Path:       string(removeNullCharacter(e.Path[:])),
 	}
 }
 
@@ -66,12 +70,12 @@ func SubscribeFileOpenEvents(ctx context.Context) (<-chan FileOpenEvent, error) 
 					if errors.Is(err, ringbuf.ErrClosed) {
 						return
 					}
-					log.Printf("read from ringbuf reader: %s", err)
+					slog.Error("read from ringbuf reader", err)
 					continue
 				}
 
 				if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
-					log.Printf("parse ringbuf event: %s", err)
+					slog.Error("parse ringbuf event", err)
 					continue
 				}
 				fileOpenEvents <- convertBpfFileOpenEvent(event)
