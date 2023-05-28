@@ -58,6 +58,8 @@ func (o *Options) Run(ctx context.Context) error {
 				"a lsm/file_open event",
 				slog.Int("pid", int(e.Pid)),
 				slog.Int("cgroup", int(e.Cgroup)),
+				slog.String("nodename", e.Nodename),
+				slog.String("parent_task", e.ParentTask),
 				slog.String("task", e.Task),
 				slog.String("path", e.Path),
 			)
