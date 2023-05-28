@@ -14,8 +14,8 @@ import (
 )
 
 type Options struct {
-	PID          int
-	UID          int
+	Pid          int32
+	Cgroup       int32
 	Output       string
 	OutputFormat string
 }
@@ -44,7 +44,11 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 	defer closeInodeBPF()
-	fileOpenEvents, err := inode.SubscribeFileOpenEvents(ctx)
+
+	fileOpenEvents, err := inode.SubscribeFileOpenEvents(ctx, &inode.SubscribeFileOpenEventsOptions{
+		Pid:    o.Pid,
+		Cgroup: o.Cgroup,
+	})
 	if err != nil {
 		return err
 	}
@@ -66,16 +70,16 @@ func (o *Options) Run(ctx context.Context) error {
 
 func NewCmd() *cobra.Command {
 	o := &Options{
-		PID:          -1,
-		UID:          -1,
+		Pid:          -1,
+		Cgroup:       -1,
 		Output:       "",
 		OutputFormat: "json",
 	}
 	cmd := &cobra.Command{
 		Use: "guardsman",
 	}
-	cmd.Flags().IntVarP(&o.PID, "pid", "p", o.PID, "trace this PID only")
-	cmd.Flags().IntVarP(&o.UID, "uid", "u", o.PID, "trace this UID only")
+	cmd.Flags().Int32VarP(&o.Pid, "pid", "p", o.Pid, "trace this PID only")
+	cmd.Flags().Int32Var(&o.Cgroup, "cgroup", o.Cgroup, "trace this cgroup only")
 	cmd.Flags().StringVarP(&o.Output, "output", "o", o.Output, "write output to this file instead of stdout")
 	cmd.Flags().StringVar(&o.OutputFormat, "output-format", o.OutputFormat, "write output in this format")
 	cmd.RunE = func(c *cobra.Command, _ []string) error {

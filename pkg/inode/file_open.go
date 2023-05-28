@@ -41,8 +41,24 @@ func convertBpfFileOpenEvent(e bpfFileOpenEvent) FileOpenEvent {
 	}
 }
 
+type SubscribeFileOpenEventsOptions struct {
+	Pid    int32
+	Cgroup int32
+}
+
 // SubscribeFileOpenEvents subscribes LSM file_open events.
-func SubscribeFileOpenEvents(ctx context.Context) (<-chan FileOpenEvent, error) {
+func SubscribeFileOpenEvents(ctx context.Context, opts *SubscribeFileOpenEventsOptions) (<-chan FileOpenEvent, error) {
+	conf := bpfFilterConfig{
+		Pid:    -1,
+		Cgroup: -1,
+	}
+	if opts != nil {
+		conf.Pid = opts.Pid
+		conf.Cgroup = opts.Cgroup
+	}
+	if err := objs.FilterConfigMap.Put(uint32(0), conf); err != nil {
+		return nil, fmt.Errorf("update filter_config: %s", err)
+	}
 	fileOpen, err := link.AttachLSM(link.LSMOptions{Program: objs.bpfPrograms.FileOpen})
 	if err != nil {
 		return nil, fmt.Errorf("attach a LSM file_open: %s", err)

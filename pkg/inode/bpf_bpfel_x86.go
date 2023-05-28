@@ -23,6 +23,11 @@ type bpfFileOpenEvent struct {
 	Path       [255]uint8
 }
 
+type bpfFilterConfig struct {
+	Pid    int32
+	Cgroup int32
+}
+
 // loadBpf returns the embedded CollectionSpec for bpf.
 func loadBpf() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_BpfBytes)
@@ -71,7 +76,8 @@ type bpfProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfMapSpecs struct {
-	FileOpenEvents *ebpf.MapSpec `ebpf:"file_open_events"`
+	FileOpenEvents  *ebpf.MapSpec `ebpf:"file_open_events"`
+	FilterConfigMap *ebpf.MapSpec `ebpf:"filter_config_map"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -93,12 +99,14 @@ func (o *bpfObjects) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfMaps struct {
-	FileOpenEvents *ebpf.Map `ebpf:"file_open_events"`
+	FileOpenEvents  *ebpf.Map `ebpf:"file_open_events"`
+	FilterConfigMap *ebpf.Map `ebpf:"filter_config_map"`
 }
 
 func (m *bpfMaps) Close() error {
 	return _BpfClose(
 		m.FileOpenEvents,
+		m.FilterConfigMap,
 	)
 }
 
