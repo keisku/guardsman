@@ -56,21 +56,23 @@ BPF_PROG(file_open, struct file *file)
   if (conf == NULL) {
     return 0;
   }
+  u64 cgroup = bpf_get_current_cgroup_id();
+  if (-1 < conf->cgroup && cgroup != (u64)conf->cgroup) {
+    return 0;
+  }
+  u32 pid = (u32)(bpf_get_current_pid_tgid() >> 32);
+  if (-1 < conf->pid && pid != (u32)conf->pid) {
+    return 0;
+  }
+
   event =
       bpf_ringbuf_reserve(&file_open_events, sizeof(struct file_open_event), 0);
   if (!event) {
     return 0;
   }
 
-  event->cgroup = bpf_get_current_cgroup_id();
-  if (-1 < conf->cgroup && event->cgroup != (u64)conf->cgroup) {
-    goto filter_out;
-  }
-  event->pid = (u32)(bpf_get_current_pid_tgid() >> 32);
-  if (-1 < conf->pid && event->pid != (u32)conf->pid) {
-    goto filter_out;
-  }
-
+  event->cgroup = cgroup;
+  event->pid = pid;
   current_task = (struct task_struct *)bpf_get_current_task();
   BPF_CORE_READ_INTO(&nsproxy, current_task, nsproxy);
   BPF_CORE_READ_INTO(&uts_ns, nsproxy, uts_ns);
@@ -85,9 +87,5 @@ BPF_PROG(file_open, struct file *file)
     return 0;
   }
   bpf_ringbuf_submit(event, 0);
-  return 0;
-
-filter_out:
-  bpf_ringbuf_discard(event, 0);
   return 0;
 }
